@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dao.UserDao">
+    <!--结果集映射-->
+    <resultMap type="com.example.entity.User" id="UserMap">
+        <id property="id" column="uid" jdbcType="INTEGER"/>
+        <result property="username" column="username" jdbcType="VARCHAR"/>
+        <result property="password" column="password" jdbcType="VARCHAR"/>
+        <collection property="roles" ofType="Role">
+            <result property="id" column="rid" jdbcType="INTEGER"/>
+            <result property="roleName" column="role_name" jdbcType="VARCHAR"/>
+            <collection property="permissions" ofType="Permission">
+                <result property="id" column="pid" jdbcType="INTEGER"/>
+                <result property="permissionName" column="permission_name"/>
+            </collection>
+        </collection>
+    </resultMap>
+
+    <!-- 基本查询字段，别名与结果集对应-->
+    <sql id="baseFiled">
+         u.id as uid,
+        username,
+        password,
+        r.id as rid,
+        role_name,
+        p.id as pid,
+        permission_name
+    </sql>
+
+    <!--左外连接，独立出来避免冗余-->
+    <sql id="baseTable">
+        left join user_role ur on  u.id=ur.user_id
+        left join role  r on ur.role_id=r.id
+        left join role_permission rp on r.id=rp.role_id
+        left join permission p on rp.permission_id=p.id
+    </sql>
+
+    <!--查询单个用户-->
+    <select id="queryById" resultMap="UserMap">
+        select
+        <include refid="baseFiled"></include>
+        from
+        user u
+        <include refid="baseTable"></include>
+        where
+        u.id = #{id}
+    </select>
+
+    <!--查询指定行数据-->
+    <select id="queryAllByLimit" resultMap="UserMap">
+        select
+        <include refid="baseFiled"/>
+        from  <!--使用子查询，不然分页会失效，记录条数不准确-->
+        (select id,username,password from user order by id  limit #{offset},#{limit}) u
+        <include refid="baseTable"/>
+    </select>
+
+    <!--通过实体作为筛选条件查询-->
+    <select id="queryAll" resultMap="UserMap">
+        select
+        id, username, password
+        from springboot.user
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="username != null and username != ''">
+                and username = #{username}
+            </if>
+            <if test="password != null and password != ''">
+                and password = #{password}
+            </if>
+        </where>
+    </select>
+
+    <!--新增所有列-->
+    <insert id="insert" keyProperty="id" useGeneratedKeys="true">
+        insert into springboot.user(username, password)
+        values (#{username}, #{password})
+    </insert>
+
+    <!--通过主键修改数据-->
+    <update id="update">
+        update springboot.user
+        <set>
+            <if test="username != null and username != ''">
+                username = #{username},
+            </if>
+            <if test="password != null and password != ''">
+                password = #{password},
+            </if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <!--通过主键删除-->
+    <delete id="deleteById">
+        delete from springboot.user where id = #{id}
+    </delete>
+
+    <!--删除中间表信息-->
+    <delete id="deleteUserRole">
+        delete from user_role where user_id= #{id};
+    </delete>
+
+<!--根据用户id和角色添加对应关系-->
+    <insert id="addRoleById">
+        insert into user_role values(#{userId},#{roleId})
+    </insert>
+
+    <!--根据用户id和角色删除对应关系-->
+    <delete id="deleteRoleById">
+        delete from user_role where user_id=#{userId} and role_id=#{roleId}
+    </delete>
+
+<!--    得到表中的记录条数-->
+    <select id="countAll">
+        select count(id)  from user ;
+    </select>
+</mapper>
